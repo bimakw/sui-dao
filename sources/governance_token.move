@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Bima Kharisma Wicaksana
+ * Copyright (c) 2025 Bima Kharisma Wicaksana
  * GitHub: https://github.com/bimakw
  *
  * Licensed under MIT License with Attribution Requirement.

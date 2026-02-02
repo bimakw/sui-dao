@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Bima Kharisma Wicaksana
+ * Copyright (c) 2025 Bima Kharisma Wicaksana
  * GitHub: https://github.com/bimakw
  *
  * Licensed under MIT License with Attribution Requirement.
@@ -126,7 +126,7 @@ module sui_dao::treasury {
                 treasury_id,
                 signer: signer_addr,
             };
-            transfer::transfer(cap, signer_addr);
+            transfer::public_transfer(cap, signer_addr);
             i = i + 1;
         };
 
