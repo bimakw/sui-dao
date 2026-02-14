@@ -1,13 +1,3 @@
-/*
- * Copyright (c) 2025 Bima Kharisma Wicaksana
- * GitHub: https://github.com/bimakw
- *
- * Licensed under MIT License with Attribution Requirement.
- * See LICENSE file for details.
- */
-
-/// Governance Token - Token with voting power for DAO governance.
-/// Supports delegation and vote checkpointing.
 module sui_dao::governance_token {
     use sui::coin::{Self, Coin, TreasuryCap};
     use sui::tx_context::{Self, TxContext};
@@ -16,26 +6,19 @@ module sui_dao::governance_token {
     use sui::table::{Self, Table};
     use sui::event;
 
-    /// One-Time-Witness
     public struct GOVERNANCE_TOKEN has drop {}
 
-    /// Error codes
     const ENotDelegated: u64 = 0;
     const EAlreadyDelegated: u64 = 1;
     const ESelfDelegation: u64 = 2;
 
-    /// Governance token configuration
     public struct GovernanceConfig has key {
         id: UID,
-        /// Mapping of address to their voting power
         voting_power: Table<address, u64>,
-        /// Mapping of delegator to delegate
         delegations: Table<address, address>,
-        /// Total voting power in circulation
         total_voting_power: u64,
     }
 
-    /// Events
     public struct VotingPowerChanged has copy, drop {
         account: address,
         old_power: u64,
@@ -48,7 +31,6 @@ module sui_dao::governance_token {
         new_delegate: address,
     }
 
-    /// Initialize governance token
     fun init(witness: GOVERNANCE_TOKEN, ctx: &mut TxContext) {
         let (treasury_cap, metadata) = coin::create_currency(
             witness,
@@ -72,7 +54,6 @@ module sui_dao::governance_token {
         transfer::share_object(config);
     }
 
-    /// Get voting power for an account
     public fun get_voting_power(config: &GovernanceConfig, account: address): u64 {
         if (table::contains(&config.voting_power, account)) {
             *table::borrow(&config.voting_power, account)
@@ -81,7 +62,6 @@ module sui_dao::governance_token {
         }
     }
 
-    /// Get delegate for an account
     public fun get_delegate(config: &GovernanceConfig, account: address): address {
         if (table::contains(&config.delegations, account)) {
             *table::borrow(&config.delegations, account)
@@ -90,7 +70,6 @@ module sui_dao::governance_token {
         }
     }
 
-    /// Update voting power (internal)
     fun update_voting_power(
         config: &mut GovernanceConfig,
         account: address,
@@ -117,7 +96,6 @@ module sui_dao::governance_token {
         });
     }
 
-    /// Mint governance tokens
     public entry fun mint(
         treasury_cap: &mut TreasuryCap<GOVERNANCE_TOKEN>,
         config: &mut GovernanceConfig,
@@ -127,7 +105,6 @@ module sui_dao::governance_token {
     ) {
         let coin = coin::mint(treasury_cap, amount, ctx);
 
-        // Update voting power for recipient (or their delegate)
         let delegate = get_delegate(config, recipient);
         update_voting_power(config, delegate, amount, true);
         config.total_voting_power = config.total_voting_power + amount;
@@ -135,7 +112,6 @@ module sui_dao::governance_token {
         transfer::public_transfer(coin, recipient);
     }
 
-    /// Transfer tokens with voting power update
     public entry fun transfer_token(
         config: &mut GovernanceConfig,
         token: Coin<GOVERNANCE_TOKEN>,
@@ -145,7 +121,6 @@ module sui_dao::governance_token {
         let amount = coin::value(&token);
         let sender = tx_context::sender(ctx);
 
-        // Update voting power
         let sender_delegate = get_delegate(config, sender);
         let recipient_delegate = get_delegate(config, recipient);
 
@@ -155,7 +130,6 @@ module sui_dao::governance_token {
         transfer::public_transfer(token, recipient);
     }
 
-    /// Delegate voting power to another address
     public entry fun delegate(
         config: &mut GovernanceConfig,
         tokens: &Coin<GOVERNANCE_TOKEN>,
@@ -169,11 +143,9 @@ module sui_dao::governance_token {
 
         let old_delegate = get_delegate(config, delegator);
 
-        // Move voting power from old delegate to new delegate
         update_voting_power(config, old_delegate, amount, false);
         update_voting_power(config, delegate_to, amount, true);
 
-        // Update delegation mapping
         if (table::contains(&config.delegations, delegator)) {
             *table::borrow_mut(&mut config.delegations, delegator) = delegate_to;
         } else {
@@ -187,7 +159,6 @@ module sui_dao::governance_token {
         });
     }
 
-    /// Remove delegation (self-delegate)
     public entry fun undelegate(
         config: &mut GovernanceConfig,
         tokens: &Coin<GOVERNANCE_TOKEN>,
@@ -200,11 +171,9 @@ module sui_dao::governance_token {
 
         let old_delegate = *table::borrow(&config.delegations, delegator);
 
-        // Move voting power back to self
         update_voting_power(config, old_delegate, amount, false);
         update_voting_power(config, delegator, amount, true);
 
-        // Remove delegation
         table::remove(&mut config.delegations, delegator);
 
         event::emit(DelegateChanged {
@@ -214,7 +183,6 @@ module sui_dao::governance_token {
         });
     }
 
-    /// View functions
     public fun total_voting_power(config: &GovernanceConfig): u64 {
         config.total_voting_power
     }

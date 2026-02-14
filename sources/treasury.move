@@ -1,13 +1,3 @@
-/*
- * Copyright (c) 2025 Bima Kharisma Wicaksana
- * GitHub: https://github.com/bimakw
- *
- * Licensed under MIT License with Attribution Requirement.
- * See LICENSE file for details.
- */
-
-/// Treasury Module - DAO treasury management with multi-sig style governance.
-/// Controls DAO funds with proposal-based spending.
 module sui_dao::treasury {
     use sui::object::{Self, UID, ID};
     use sui::tx_context::{Self, TxContext};
@@ -19,39 +9,31 @@ module sui_dao::treasury {
     use sui::table::{Self, Table};
     use std::string::{Self, String};
 
-    /// Error codes
     const ENotAuthorized: u64 = 0;
     const EInsufficientFunds: u64 = 1;
     const ESpendingProposalNotApproved: u64 = 2;
     const EProposalAlreadyProcessed: u64 = 3;
     const ENotEnoughApprovals: u64 = 4;
 
-    /// Spending proposal status
     const STATUS_PENDING: u8 = 0;
     const STATUS_APPROVED: u8 = 1;
     const STATUS_REJECTED: u8 = 2;
     const STATUS_EXECUTED: u8 = 3;
 
-    /// Treasury
     public struct Treasury has key {
         id: UID,
         balance: Balance<SUI>,
-        /// Required approvals for spending
         required_approvals: u64,
-        /// List of treasury signers
         signers: vector<address>,
-        /// Total spending proposals
         proposal_count: u64,
     }
 
-    /// Signer capability
     public struct SignerCap has key, store {
         id: UID,
         treasury_id: ID,
         signer: address,
     }
 
-    /// Spending proposal
     public struct SpendingProposal has key, store {
         id: UID,
         proposal_id: u64,
@@ -65,7 +47,6 @@ module sui_dao::treasury {
         status: u8,
     }
 
-    /// Events
     public struct TreasuryCreated has copy, drop {
         treasury_id: ID,
         required_approvals: u64,
@@ -97,7 +78,6 @@ module sui_dao::treasury {
         amount: u64,
     }
 
-    /// Create a new treasury with multi-sig
     public entry fun create_treasury(
         signers: vector<address>,
         required_approvals: u64,
@@ -116,7 +96,6 @@ module sui_dao::treasury {
 
         let treasury_id = object::id(&treasury);
 
-        // Create signer capabilities
         let mut i = 0;
         let len = vector::length(&signers);
         while (i < len) {
@@ -139,7 +118,6 @@ module sui_dao::treasury {
         transfer::share_object(treasury);
     }
 
-    /// Deposit funds to treasury
     public entry fun deposit(
         treasury: &mut Treasury,
         payment: Coin<SUI>,
@@ -157,7 +135,6 @@ module sui_dao::treasury {
         });
     }
 
-    /// Create spending proposal (signer only)
     public entry fun create_spending_proposal(
         treasury: &mut Treasury,
         signer_cap: &SignerCap,
@@ -206,7 +183,6 @@ module sui_dao::treasury {
         transfer::share_object(proposal);
     }
 
-    /// Approve spending proposal (signer only)
     public entry fun approve_proposal(
         treasury: &Treasury,
         proposal: &mut SpendingProposal,
@@ -235,7 +211,6 @@ module sui_dao::treasury {
         };
     }
 
-    /// Execute approved spending proposal
     public entry fun execute_spending(
         treasury: &mut Treasury,
         proposal: &mut SpendingProposal,
@@ -262,7 +237,6 @@ module sui_dao::treasury {
         transfer::public_transfer(payment, proposal.recipient);
     }
 
-    /// Reject proposal (requires majority of signers to reject)
     public entry fun reject_proposal(
         treasury: &Treasury,
         proposal: &mut SpendingProposal,
@@ -278,7 +252,6 @@ module sui_dao::treasury {
         proposal.status = STATUS_REJECTED;
     }
 
-    /// View functions
     public fun treasury_balance(treasury: &Treasury): u64 {
         balance::value(&treasury.balance)
     }

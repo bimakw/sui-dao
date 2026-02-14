@@ -1,13 +1,3 @@
-/*
- * Copyright (c) 2025 Bima Kharisma Wicaksana
- * GitHub: https://github.com/bimakw
- *
- * Licensed under MIT License with Attribution Requirement.
- * See LICENSE file for details.
- */
-
-/// DAO Module - Decentralized Autonomous Organization with proposal and voting.
-/// Supports proposal creation, voting, and execution.
 module sui_dao::dao {
     use sui::object::{Self, UID, ID};
     use sui::tx_context::{Self, TxContext};
@@ -19,7 +9,6 @@ module sui_dao::dao {
 
     use sui_dao::governance_token::{Self, GovernanceConfig};
 
-    /// Error codes
     const EProposalNotActive: u64 = 0;
     const EAlreadyVoted: u64 = 1;
     const EInsufficientVotingPower: u64 = 2;
@@ -30,7 +19,6 @@ module sui_dao::dao {
     const EProposalExpired: u64 = 7;
     const EBelowProposalThreshold: u64 = 8;
 
-    /// Proposal states
     const STATE_PENDING: u8 = 0;
     const STATE_ACTIVE: u8 = 1;
     const STATE_DEFEATED: u8 = 2;
@@ -38,52 +26,34 @@ module sui_dao::dao {
     const STATE_EXECUTED: u8 = 4;
     const STATE_EXPIRED: u8 = 5;
 
-    /// DAO configuration
     public struct DAOConfig has key {
         id: UID,
         name: String,
-        /// Minimum voting power required to create proposal
         proposal_threshold: u64,
-        /// Minimum votes required for proposal to pass (% of total supply * 100)
         quorum_bps: u64,
-        /// Voting period in milliseconds
         voting_period_ms: u64,
-        /// Execution delay after voting ends
         execution_delay_ms: u64,
-        /// Execution window after delay
         execution_window_ms: u64,
-        /// Total proposals created
         proposal_count: u64,
     }
 
-    /// Proposal
     public struct Proposal has key, store {
         id: UID,
         proposal_id: u64,
         proposer: address,
         title: String,
         description: String,
-        /// Votes for the proposal
         for_votes: u64,
-        /// Votes against the proposal
         against_votes: u64,
-        /// Abstain votes
         abstain_votes: u64,
-        /// Snapshot of total voting power at creation
         total_voting_power_snapshot: u64,
-        /// Voting start time
         start_time: u64,
-        /// Voting end time
         end_time: u64,
-        /// Voters who have voted
         voters: Table<address, bool>,
-        /// Current state
         state: u8,
-        /// Execution time (if passed)
         execution_time: u64,
     }
 
-    /// Vote receipt
     public struct VoteReceipt has key, store {
         id: UID,
         proposal_id: u64,
@@ -92,7 +62,6 @@ module sui_dao::dao {
         votes: u64,
     }
 
-    /// Events
     public struct ProposalCreated has copy, drop {
         proposal_id: u64,
         proposer: address,
@@ -119,7 +88,6 @@ module sui_dao::dao {
         new_state: u8,
     }
 
-    /// Initialize DAO
     public entry fun create_dao(
         name: vector<u8>,
         proposal_threshold: u64,
@@ -143,7 +111,6 @@ module sui_dao::dao {
         transfer::share_object(dao);
     }
 
-    /// Create a new proposal
     public entry fun create_proposal(
         dao: &mut DAOConfig,
         gov_config: &GovernanceConfig,
@@ -192,7 +159,6 @@ module sui_dao::dao {
         transfer::share_object(proposal);
     }
 
-    /// Cast vote on a proposal
     public entry fun cast_vote(
         proposal: &mut Proposal,
         gov_config: &GovernanceConfig,
@@ -203,19 +169,15 @@ module sui_dao::dao {
         let voter = tx_context::sender(ctx);
         let current_time = clock::timestamp_ms(clock);
 
-        // Check proposal is active
         assert!(proposal.state == STATE_ACTIVE, EProposalNotActive);
         assert!(current_time >= proposal.start_time, EProposalNotActive);
         assert!(current_time < proposal.end_time, EProposalNotActive);
 
-        // Check voter hasn't voted
         assert!(!table::contains(&proposal.voters, voter), EAlreadyVoted);
 
-        // Get voting power
         let votes = governance_token::get_voting_power(gov_config, voter);
         assert!(votes > 0, EInsufficientVotingPower);
 
-        // Record vote
         table::add(&mut proposal.voters, voter, true);
 
         if (support == 0) {
@@ -233,7 +195,6 @@ module sui_dao::dao {
             votes,
         });
 
-        // Create vote receipt
         let receipt = VoteReceipt {
             id: object::new(ctx),
             proposal_id: proposal.proposal_id,
@@ -245,7 +206,6 @@ module sui_dao::dao {
         transfer::transfer(receipt, voter);
     }
 
-    /// Finalize proposal after voting ends
     public entry fun finalize_proposal(
         dao: &DAOConfig,
         proposal: &mut Proposal,
@@ -259,7 +219,6 @@ module sui_dao::dao {
         let old_state = proposal.state;
         let total_votes = proposal.for_votes + proposal.against_votes + proposal.abstain_votes;
 
-        // Check quorum
         let quorum_votes = (proposal.total_voting_power_snapshot * dao.quorum_bps) / 10000;
 
         if (total_votes < quorum_votes) {
@@ -278,7 +237,6 @@ module sui_dao::dao {
         });
     }
 
-    /// Execute a passed proposal
     public entry fun execute_proposal(
         dao: &DAOConfig,
         proposal: &mut Proposal,
@@ -312,7 +270,6 @@ module sui_dao::dao {
         // the actual on-chain actions defined in the proposal
     }
 
-    /// Check if proposal has expired
     public entry fun expire_proposal(
         dao: &DAOConfig,
         proposal: &mut Proposal,
@@ -335,7 +292,6 @@ module sui_dao::dao {
         });
     }
 
-    /// View functions
     public fun get_proposal_state(proposal: &Proposal): u8 {
         proposal.state
     }
